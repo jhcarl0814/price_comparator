@@ -21,7 +21,6 @@ Window {
     }
     property var current_searches: []
     property var current_search_results: []
-    signal searchResultsUpdated(int search_result_index)
     ListModel {
         id: model_search_results
     }
@@ -133,21 +132,17 @@ Window {
                     model: model_search_results
                     delegate: Item {
                         id: delegate_search_result
-                        required property int index
+                        //                        required property int index
+                        required property string name
                         required property var product_data
-                        required property var model
-                        //                        property bool freezed: false
-                        //                        ListView.onPooled: freezed = true
-                        //                        ListView.onReused: {
-                        //                            freezed = false
-                        //                            refresh_ui(index)
-                        //                        }
+                        required property real product_price_max
+                        required property string text_search_result_text
                         width: delegate_search_result.ListView.view.width
                         height: vlayout_search_result.implicitHeight
                         ColumnLayout {
                             id: vlayout_search_result
                             ChartView {
-                                title: model.name
+                                title: name
                                 legend.alignment: Qt.AlignBottom
                                 antialiasing: true
                                 Layout.preferredWidth: delegate_search_result.ListView.view.width
@@ -160,51 +155,31 @@ Window {
                                     }
                                     axisY: ValueAxis {
                                         id: yaxis_search_result
+                                        min: 0
+                                        max: product_price_max
                                     }
                                 }
                             }
-                            TextEdit {
+                            Text /*TextEdit*/ {
                                 id: text_search_result
                                 Layout.preferredWidth: delegate_search_result.ListView.view.width
-                                readOnly: true
-                                selectByMouse: true
+                                //                                readOnly: true
+                                //                                selectByMouse: true
                                 wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                                 textFormat: Text.RichText
                                 onLinkActivated: link => {
                                                      Qt.openUrlExternally(link)
                                                  }
+                                text: text_search_result_text
                             }
                         }
-                        function refresh_ui(search_result_index) {
-                            if (/*!freezed &&*/ search_result_index === index) {
-                                console.log("refresh_ui")
-                                console.log(index)
-                                console.log(product_data)
-                                series_search_result.clear()
-                                var text_search_result_text = ""
-                                text_search_result_text += `<table style="border-collapse:collapse;border-width:1px;border-style:solid;border-color:black;"><tbody>`
-                                var product_price_max = 1
-                                for (var i = 0; i !== product_data.count; ++i) {
-                                    series_search_result.append(product_data.get(i).product_title, [product_data.get(i).product_price])
-                                    product_price_max = Math.max(product_price_max, product_data.get(i).product_price)
-                                    text_search_result_text += `<tr>
-                                    <td>
-                                    <img src="${product_data.get(i).product_picture}" width="60" height="60">
-                                    </td>
-                                    <td style="padding:5px;">
-                                    <p style="margin-top:1px;margin-bottom:1px;">[${product_data.get(i).store}]&nbsp;${product_data.get(i).product_title}${product_data.get(i).product_subtitle.length === 0 ? "" : ` <span style="color:darkgrey;">(</span>${product_data.get(i).product_subtitle}<span style="color:darkgrey;">)</span>`}</p>
-                                    <p style="margin-top:0px;margin-bottom:0px;">$${product_data.get(i).product_price}${product_data.get(i).product_unit.length === 0 ? "" : ` <span style="color:blue;">/</span> ${product_data.get(i).product_unit}`}${product_data.get(i).product_rho.length === 0 ? "" : ` <span style="color:blue;">==></span> ${product_data.get(i).product_rho}`}&nbsp;&nbsp;&nbsp;<a href="${product_data.get(i).product_url}" style="text-decoration:none;">🔗</a></p>
-                                    </td>
-                                    </tr>`
-                                }
-                                yaxis_search_result.min = 0
-                                yaxis_search_result.max = product_price_max
-                                text_search_result_text += "</tbody></table>"
-                                text_search_result.text = text_search_result_text
+                        onProduct_dataChanged: {
+                            console.log("onProduct_dataChanged" /*, index*/
+                                        , product_data)
+                            series_search_result.clear()
+                            for (var i = 0; i !== product_data.count; ++i) {
+                                series_search_result.append(product_data.get(i).product_title, [product_data.get(i).product_price])
                             }
-                        }
-                        Component.onCompleted: {
-                            searchResultsUpdated.connect(refresh_ui)
                         }
                     }
                 }
@@ -239,10 +214,14 @@ Window {
 
             current_search_results.push({
                                             "name": search.name,
+                                            "product_price_max": 0.0,
+                                            "text_search_result_text": "",
                                             "product_data": []
                                         })
             model_search_results.append({
                                             "name": search.name,
+                                            "product_price_max": 0.0,
+                                            "text_search_result_text": "",
                                             "product_data": []
                                         })
         }
@@ -272,10 +251,31 @@ Window {
                         current_search_results[current_search_result_index].product_data.sort(function (lhs, rhs) {
                             return parseFloat(lhs.product_price) - parseFloat(rhs.product_price)
                         })
+
+                        var product_data = current_search_results[current_search_result_index].product_data
+                        var product_price_max = 1
+                        var text_search_result_text = ""
+                        text_search_result_text += `<table style="border-collapse:collapse;border-width:1px;border-style:solid;border-color:black;"><tbody>`
+                        for (var i = 0; i !== product_data.length; ++i) {
+                            product_price_max = Math.max(product_price_max, product_data[i].product_price)
+                            text_search_result_text += `<tr>
+                            <td>
+                            <img src="${product_data[i].product_picture}" width="60" height="60">
+                            </td>
+                            <td style="padding:5px;">
+                            <p style="margin-top:1px;margin-bottom:1px;">[${product_data[i].store}]&nbsp;${product_data[i].product_title}${product_data[i].product_subtitle.length === 0 ? "" : ` <span style="color:darkgrey;">(</span>${product_data[i].product_subtitle}<span style="color:darkgrey;">)</span>`}</p>
+                            <p style="margin-top:0px;margin-bottom:0px;">$${product_data[i].product_price}${product_data[i].product_unit.length === 0 ? "" : ` <span style="color:blue;">/</span> ${product_data[i].product_unit}`}${product_data[i].product_rho.length === 0 ? "" : ` <span style="color:blue;">==></span> ${product_data[i].product_rho}`}&nbsp;&nbsp;&nbsp;<a href="${product_data[i].product_url}" style="text-decoration:none;">🔗</a></p>
+                            </td>
+                            </tr>`
+                        }
+                        text_search_result_text += "</tbody></table>"
+
+                        current_search_results[current_search_result_index].product_price_max = product_price_max
+                        current_search_results[current_search_result_index].text_search_result_text = text_search_result_text
+
                         console.log("current_search_result_index", current_search_result_index)
                         console.log("product_data", JSON.stringify(current_search_results[current_search_result_index].product_data))
                         model_search_results.set(current_search_result_index, current_search_results[current_search_result_index])
-                        searchResultsUpdated(current_search_result_index)
                     }
                 }
             }
